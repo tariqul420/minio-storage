@@ -1,0 +1,123 @@
+services:
+  eduflow-minio:
+    image: minio/minio:latest
+    container_name: eduflow-minio
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER_REDIRECT_URL: https://minio.eduflowbd.com
+      MINIO_SERVER_URL: https://s3.eduflowbd.com
+      MINIO_API_CORS_ALLOW_ORIGIN: ${S3_CORS_ORIGINS}
+    volumes:
+      - eduflow-minio-data:/data
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      - "traefik.http.routers.eduflow-minio-s3.rule=Host(`s3.eduflowbd.com`) || Host(`cdn.eduflowbd.com`)"
+      - "traefik.http.routers.eduflow-minio-s3.entrypoints=websecure"
+      - "traefik.http.routers.eduflow-minio-s3.tls=true"
+      - "traefik.http.routers.eduflow-minio-s3.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.eduflow-minio-s3.service=eduflow-minio-s3"
+      - "traefik.http.services.eduflow-minio-s3.loadbalancer.server.port=9000"
+
+      - "traefik.http.routers.eduflow-minio-console.rule=Host(`minio.eduflowbd.com`)"
+      - "traefik.http.routers.eduflow-minio-console.entrypoints=websecure"
+      - "traefik.http.routers.eduflow-minio-console.tls=true"
+      - "traefik.http.routers.eduflow-minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.eduflow-minio-console.service=eduflow-minio-console"
+      - "traefik.http.services.eduflow-minio-console.loadbalancer.server.port=9001"
+
+  eduflow-minio-init:
+    image: minio/mc:latest
+    container_name: eduflow-minio-init
+    restart: "no"
+    depends_on:
+      eduflow-minio:
+        condition: service_healthy
+    networks:
+      - web
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+
+        echo "Waiting for EduFlow MinIO credentials..."
+        for i in $$(seq 1 30); do
+          if mc alias set eduflow http://eduflow-minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; then
+            break
+          fi
+          echo "EduFlow MinIO not ready for login yet... retry $$i"
+          sleep 3
+        done
+
+        echo "Checking EduFlow MinIO ready..."
+        mc ready eduflow
+
+        echo "Creating bucket if not exists..."
+        mc mb -p "eduflow/$$S3_BUCKET_NAME" || true
+
+        echo "Setting bucket public download..."
+        mc anonymous set download "eduflow/$$S3_BUCKET_NAME" || true
+
+        echo "Creating app policy..."
+        cat > /tmp/eduflow-policy.json <<EOF
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::$$S3_BUCKET_NAME",
+                "arn:aws:s3:::$$S3_BUCKET_NAME/*"
+              ]
+            }
+          ]
+        }
+        EOF
+
+        mc admin policy create eduflow eduflow-app-policy /tmp/eduflow-policy.json || true
+
+        echo "Creating app user..."
+        mc admin user add eduflow "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" || true
+
+        sleep 5
+
+        echo "Attaching app policy..."
+        mc admin policy attach eduflow eduflow-app-policy --user "$$S3_ACCESS_KEY_ID"
+
+        echo "Verifying app user..."
+        mc admin user info eduflow "$$S3_ACCESS_KEY_ID"
+
+        echo "EduFlow MinIO init completed successfully."
+
+networks:
+  web:
+    external: true
+
+volumes:
+  eduflow-minio-data:
