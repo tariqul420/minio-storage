@@ -310,6 +310,63 @@ const MediaUploaderField = forwardRef<MediaUploaderFieldRef, Props>(
       [multiple, updateUrls],
     );
 
+    function getPendingFile(url: string): PendingFile | undefined {
+      return pendingFiles.find((p) => p.previewUrl === url);
+    }
+
+    function inferMediaKind(url: string): MediaKind | "unknown" {
+      const pending = getPendingFile(url);
+      if (pending) {
+        const t = pending.file.type || "";
+        if (t.startsWith("image/")) return "image";
+        if (t.startsWith("video/")) return "video";
+        if (t.startsWith("audio/")) return "audio";
+        if (t === "application/pdf") return "pdf";
+      }
+
+      const path = url.split("?")[0].split("#")[0].toLowerCase();
+
+      if (/\.(jpe?g|png|webp|gif|svg)$/.test(path)) return "image";
+      if (/\.(mp4|webm|ogg|mov)$/.test(path)) return "video";
+      if (/\.(mp3|wav|m4a|aac|oga)$/.test(path)) return "audio";
+      if (/\.(pdf)$/.test(path)) return "pdf";
+
+      return "unknown";
+    }
+
+    function renderMediaPreview(url: string) {
+      const kind = inferMediaKind(url);
+
+      switch (kind) {
+        case "image":
+          return (
+            <img src={url} alt={label} className="h-full w-full object-cover" />
+          );
+        case "video":
+          return (
+            <video controls className="h-full w-full object-cover">
+              <source src={url} />
+              Your browser does not support the video element.
+            </video>
+          );
+        case "audio":
+          return <audio controls className="w-full" src={url} />;
+        case "pdf":
+          return <iframe src={url} title={label} className="h-full w-full" />;
+        default:
+          return (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-4 text-sm text-primary underline"
+            >
+              Open file
+            </a>
+          );
+      }
+    }
+
     const hasValue = urls.length > 0;
 
     return (
@@ -448,11 +505,7 @@ const MediaUploaderField = forwardRef<MediaUploaderFieldRef, Props>(
                           multiple ? "aspect-video" : "aspect-square w-full",
                         )}
                       >
-                        <img
-                          src={url}
-                          alt={label}
-                          className="h-full w-full object-cover"
-                        />
+                        {renderMediaPreview(url)}
 
                         {!disabled ? (
                           <Button

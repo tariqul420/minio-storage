@@ -98,7 +98,7 @@ From the `vps/` folder run:
 docker compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-This will start `eduflow-minio` and `eduflow-minio-init` containers. The init container will wait for MinIO and attempt to create the configured bucket and application user.
+This will start `example-minio` and `example-minio-init` containers. The init container will wait for MinIO and attempt to create the configured bucket and application user.
 
 9. Verify the deployment
 
@@ -106,8 +106,8 @@ Check that containers are running and examine logs:
 
 ```bash
 docker compose -f docker-compose.yaml ps
-docker compose -f docker-compose.yaml logs -f eduflow-minio
-docker logs eduflow-minio-init
+docker compose -f docker-compose.yaml logs -f example-minio
+docker logs example-minio-init
 
 # Health check (from the VPS)
 curl -f http://127.0.0.1:9000/minio/health/live && echo "MinIO is healthy"
@@ -123,13 +123,13 @@ chmod +x mc
 sudo mv mc /usr/local/bin/mc
 
 # Set alias
-mc alias set eduflow http://127.0.0.1:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+mc alias set example http://127.0.0.1:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 
 # List the configured bucket
-mc ls eduflow/$S3_BUCKET_NAME
+mc ls example/$S3_BUCKET_NAME
 
 # Verify the application user exists
-mc admin user info eduflow $S3_ACCESS_KEY_ID
+mc admin user info example $S3_ACCESS_KEY_ID
 ```
 
 11. Configure the backend server environment
@@ -192,7 +192,7 @@ sudo systemctl enable --now minio-stack.service
 
 - `network web not found` when running compose → run `docker network create web`.
 - Certificate issuance fails (Let's Encrypt) → confirm DNS records, ensure ports 80 and 443 are reachable, and check Traefik logs and resolver configuration.
-- `eduflow-minio-init` fails to create the bucket → inspect `docker logs eduflow-minio-init` and `docker compose logs eduflow-minio` to verify credentials and connectivity.
+- `example-minio-init` fails to create the bucket → inspect `docker logs example-minio-init` and `docker compose logs example-minio` to verify credentials and connectivity.
 
 15. Security recommendations
 
@@ -208,4 +208,4 @@ I can help further by:
 - generating a `server/.env` sample populated with your chosen values,
 - or creating a Traefik example configuration that matches your VPS environment.
 
-References: `vps/docker-compose.yaml`, `vps/.env.example`
+References: `vps/docker-compose.yaml`, `vps/.env.example`, Traefik documentation, MinIO documentation.

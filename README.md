@@ -8,8 +8,6 @@ Lightweight media presign and management service built for S3-compatible storage
 - Frontend: React/Next-style uploader utilities that request presigned upload fields and post files directly to S3/MinIO.
 - Storage: MinIO (S3-compatible) used in the provided Docker Compose for VPS deployment.
 
-This README documents how to run locally, what environment variables are required, the upload flow, allowed file types/limits, and production notes.
-
 ---
 
 ## Quick links
@@ -28,7 +26,7 @@ This README documents how to run locally, what environment variables are require
 ## Prerequisites
 
 - Node.js (recommended >= 18)
-- npm, pnpm, or yarn to install dependencies for `server/` and `frontend/` (check each package's package.json)
+- npm, pnpm, or yarn to install dependencies for `server` and `frontend` (check each package's package.json)
 - Docker & Docker Compose for local MinIO or VPS deployment
 
 Note: This repo snapshot contains the server and frontend source fragments. Inspect each package's `package.json` (if present) for exact scripts (`dev`, `build`, `start`).
@@ -57,7 +55,7 @@ Frontend (client) environment variable:
 NEXT_PUBLIC_API_URL=http://localhost:4000   # base URL for your API (adjust port)
 ```
 
-VPS/Docker Compose-specific variables are provided in `vps/.env.example`. Copy it to `vps/.env` and fill values before starting the compose stack.
+VPS/Docker Compose-specific variables are provided in `.env.example`. Copy it to `.env` and fill values before starting the compose stack.
 
 ---
 
@@ -69,14 +67,14 @@ Example using the provided compose file (recommended for parity with production)
 
 ```bash
 # copy example env and edit values
-cp vps/.env.example vps/.env
-# Edit vps/.env and set MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
+cp .env.example .env
+# Edit .env and set MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
 
 # Start the compose stack (from repo root)
-docker compose --env-file vps/.env -f vps/docker-compose.yaml up -d
+docker compose --env-file .env -f vps/docker-compose.yaml up -d
 ```
 
-The `eduflow-minio-init` service in the compose will create the bucket and attach a policy for the application user (values come from `vps/.env`).
+The `example-minio-init` service in the compose will create the bucket and attach a policy for the application user (values come from `.env`).
 
 Alternatively run a single MinIO container for quick local tests:
 
@@ -91,7 +89,7 @@ docker run -p 9000:9000 -p 9001:9001 \
 ## Developer quick start (high level)
 
 1. Start MinIO (see previous section).
-2. Create `server/.env` with the `S3_*` variables so the server can connect to MinIO.
+2. Create `.env` with the `S3_*` variables so the server can connect to MinIO.
 3. Start the backend:
 
 ```bash
